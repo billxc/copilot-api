@@ -69,6 +69,7 @@ export async function runServer(options: RunServerOptions): Promise<void> {
   serve({
     fetch: server.fetch as ServerHandler,
     port: options.port,
+    idleTimeout: 255,
   })
 }
 
