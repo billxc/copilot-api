@@ -14,4 +14,8 @@ node_modules/
 dist/
 claude_test/
 
-.DS_Store.claude/
+.DS_Store
+.claude/
+
+# generated
+src/routes/index/page.ts

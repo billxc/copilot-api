@@ -22,8 +22,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown",
-    "dev": "bun run --watch ./src/main.ts start",
+    "build": "bun run scripts/generate-page.ts && tsdown",
+    "dev": "bun run scripts/generate-page.ts && bun run --watch ./src/main.ts start",
     "knip": "knip-bun",
     "lint": "eslint --cache",
     "lint:all": "eslint --cache .",

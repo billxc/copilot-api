@@ -209,6 +209,8 @@
         from { opacity: 0; transform: translateY(4px); }
         to { opacity: 1; transform: translateY(0); }
       }
+      details[open] > summary .chevron { transform: rotate(90deg); }
+      summary::-webkit-details-marker { display: none; }
     </style>
   </head>
   <body>
@@ -226,6 +228,7 @@
                 </svg>
               </div>
               <h1 class="text-xl font-semibold tracking-tight">Copilot API</h1>
+              <span id="version-badge" class="text-xs px-2 py-0.5 rounded-full font-mono" style="background: var(--bg-hover); color: var(--fg-muted); display: none"></span>
             </div>
             <p class="text-sm" style="color: var(--fg-subtle)">Monitor usage, browse models, and configure clients</p>
           </div>
@@ -354,14 +357,25 @@
           statusDot.style.background = "var(--warning)";
           render();
           try {
-            const [usageRes, modelsRes] = await Promise.all([
+            const [usageRes, modelsRes, infoRes] = await Promise.all([
               fetch(base + "/usage"),
               fetch(base + "/models"),
+              fetch(base + "/?format=json").catch(() => null),
             ]);
             if (!usageRes.ok) throw new Error("Usage: " + usageRes.status);
             if (!modelsRes.ok) throw new Error("Models: " + modelsRes.status);
             usageData = await usageRes.json();
             modelsData = await modelsRes.json();
+            if (infoRes && infoRes.ok) {
+              try {
+                const info = await infoRes.json();
+                const badge = document.getElementById("version-badge");
+                if (info && info.version) {
+                  badge.textContent = "v" + info.version;
+                  badge.style.display = "";
+                }
+              } catch {}
+            }
             statusDot.style.background = "var(--success)";
           } catch (e) {
             error = e.message;
@@ -441,15 +455,20 @@
 
         function renderRawData(data) {
           return `
-            <section>
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xs uppercase tracking-wider font-medium" style="color: var(--fg-subtle)">Raw Response</h2>
-                <button class="btn-ghost" onclick='copyToClipboard(this)' data-code='${escapeAttr(JSON.stringify(data, null, 2))}'>Copy</button>
-              </div>
+            <details>
+              <summary class="flex items-center justify-between mb-4 cursor-pointer list-none">
+                <h2 class="text-xs uppercase tracking-wider font-medium flex items-center gap-2" style="color: var(--fg-subtle)">
+                  <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.15s">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                  Raw Response
+                </h2>
+                <button class="btn-ghost" onclick='event.preventDefault(); copyToClipboard(this)' data-code='${escapeAttr(JSON.stringify(data, null, 2))}'>Copy</button>
+              </summary>
               <div class="card overflow-hidden">
                 <pre class="p-5 text-xs overflow-auto" style="color: var(--fg-muted); max-height: 480px">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
               </div>
-            </section>`;
+            </details>`;
         }
 
         // === Models Tab ===
@@ -491,7 +510,7 @@
               </section>`;
           }).join("");
 
-          return sections;
+          return sections + renderRawData(data);
         }
 
         // === Config Tab ===
@@ -606,6 +625,23 @@
         let endpoint = urlParams.get("endpoint") || "";
         if (endpoint.endsWith("/usage")) {
           endpoint = endpoint.replace(/\/usage$/, "");
+        }
+        // Auto-load when served from a local-ish host: loopback addresses,
+        // private LAN IP ranges, or *.local mDNS names. Public hosts (e.g.
+        // the docs site) require an explicit ?endpoint= param.
+        function isLocalHost(h) {
+          if (!h) return false;
+          if (h === "localhost" || h === "0.0.0.0") return true;
+          if (h === "[::1]" || h === "::1") return true;
+          if (/\.local$/i.test(h)) return true;
+          if (/^127\./.test(h)) return true;
+          if (/^10\./.test(h)) return true;
+          if (/^192\.168\./.test(h)) return true;
+          if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+          return false;
+        }
+        if (!endpoint && isLocalHost(window.location.hostname)) {
+          endpoint = window.location.origin;
         }
         baseUrlInput.value = endpoint || DEFAULT_BASE;
         if (endpoint) {
