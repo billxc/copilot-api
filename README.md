@@ -244,12 +244,27 @@ services:
 <details>
 <summary><h2>Update Log</h2></summary>
 
-### Native Passthrough for Responses API and Claude API
+### v1.2.3 — Claude Model Selection & Codex 5.5
 
-The proxy now supports **native passthrough** for both the OpenAI Responses API (`/responses`) and the Anthropic Messages API (`/v1/messages`, `/v1/messages/count_tokens`) when targeting supported models.
+- **Claude model version selection**: New `--claude-model` (`-m`) option for `config --claude`. Choose between Opus 4.7 (default) and Opus 4.6.
+- **Codex default model updated**: `config --codex` now defaults to `gpt-5.5`.
+- **Filter unsupported tools in Responses API**: Automatically strips `image_generation` and other unsupported tool types before forwarding to upstream, preventing errors from Codex CLI.
+- **Bun idle timeout fix**: Increased `idleTimeout` to 255s to prevent streaming responses from being cut off after 10 seconds.
+- **README restructured**: Quick Start first, collapsible Docker/Update Log sections, consolidated command reference.
 
-- **Claude API passthrough**: When the request model starts with `claude`, the entire Anthropic Messages request is forwarded directly to the upstream Copilot endpoint without any local translation.
-- **Responses API passthrough**: When the request model starts with `gpt`, the OpenAI Responses API request is forwarded directly to the upstream `/responses` endpoint without transformation.
-- **Non-matching models fall back to local translation**: For non-Claude models hitting `/v1/messages`, the existing Anthropic-to-OpenAI translation layer is still used.
+### v1.2.1 — easy-service & Config Command
+
+- **New `config` subcommand**: One-command setup for Claude Code (`config --claude`) and Codex CLI (`config --codex`).
+- **Background service**: Replaced built-in daemon with [easy-service](https://github.com/billxc/easy-service) for cross-platform service management.
+
+### v1.1.x — Anthropic 1M Models
+
+- **Anthropic 1M model support**: Enhanced beta header handling for `claude-opus-4.6-1m` and other 1M context models.
+
+### v1.0.x — Native Passthrough
+
+- **Native passthrough for Responses API and Claude API**: Claude models forward the entire Anthropic Messages request directly to upstream. GPT models forward Responses API requests without transformation.
+- **Full protocol fidelity**: Tool use, streaming, thinking blocks, vision — all preserved without translation loss.
+- **Fallback translation**: Non-Claude models hitting `/v1/messages` still use the Anthropic-to-OpenAI translation layer.
 
 </details>
