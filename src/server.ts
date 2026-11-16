@@ -5,6 +5,7 @@ import { requestLogger } from "~/lib/logger"
 
 import { completionRoutes } from "./routes/chat-completions/route"
 import { embeddingRoutes } from "./routes/embeddings/route"
+import { geminiRoutes } from "./routes/gemini/route"
 import { indexRoute } from "./routes/index/route"
 import { messageRoutes } from "./routes/messages/route"
 import { modelRoutes } from "./routes/models/route"
@@ -34,3 +35,6 @@ server.route("/v1/responses", responseRoutes)
 
 // Anthropic compatible endpoints
 server.route("/v1/messages", messageRoutes)
+
+server.route("/v1beta", geminiRoutes)
+server.route("/v1", geminiRoutes)

@@ -15,7 +15,7 @@
 
 [![爱发电](https://img.shields.io/badge/爱发电-billxc-946ce6?style=for-the-badge)](https://afdian.com/a/billxc)
 
-A reverse-engineered proxy for the GitHub Copilot API that exposes it as an OpenAI and Anthropic compatible service. Use GitHub Copilot with [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview), [Codex CLI](https://github.com/openai/codex), or any tool that supports the OpenAI / Anthropic API.
+A reverse-engineered proxy for the GitHub Copilot API that exposes OpenAI, Anthropic, and Gemini-compatible services. Use GitHub Copilot with [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview), [Codex CLI](https://github.com/openai/codex), [Antigravity CLI](https://antigravity.google/docs/install/), or tools supporting these APIs.
 
 > **Note:** If you are using [opencode](https://github.com/sst/opencode), you do not need this project. Opencode supports GitHub Copilot provider out of the box.
 
@@ -28,6 +28,7 @@ npx xc-copilot-api@latest start
 # 2. Configure your tool
 npx xc-copilot-api@latest config --claude    # Claude Code (Opus 4.7)
 npx xc-copilot-api@latest config --codex     # Codex CLI (GPT-5.5)
+npx xc-copilot-api@latest config --agy       # Antigravity CLI (GPT-4.1; prints required environment commands)
 ```
 
 That's it. Your tool is now powered by GitHub Copilot.
@@ -38,9 +39,9 @@ https://github.com/user-attachments/assets/7654b383-669d-4eb9-b23c-06d7aefee8c5
 
 ## Features
 
-- **OpenAI & Anthropic Compatibility** — `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, `/v1/embeddings`, `/v1/models`
+- **OpenAI, Anthropic & Gemini Compatibility** — Existing `/v1` APIs plus Gemini generation, streaming, token counting, and discovery under `/v1beta/models`
 - **Native Passthrough** — Claude and GPT models are forwarded directly to upstream with full protocol fidelity (tool use, streaming, thinking blocks, vision)
-- **One-command Setup** — `config --claude` / `config --codex` writes the right settings automatically
+- **Client Setup** — `config --claude` / `config --codex` writes settings automatically; `config --agy` also prints required shell environment commands
 - **Usage Dashboard** — Web UI to monitor quotas and usage statistics
 - **Rate Limiting** — `--rate-limit` and `--wait` to stay within GitHub's limits
 - **Background Service** — Run as a system service via [easy-service](https://github.com/billxc/easy-service)
@@ -114,6 +115,71 @@ wire_api = "responses"
 
 </details>
 
+## Using with Antigravity CLI (agy)
+
+Antigravity CLI can use the proxy through its Gemini API-key provider. This does not emulate Google's private Antigravity account API.
+
+```sh
+npx xc-copilot-api@latest config --agy
+
+# Optional: choose a different Copilot Chat Completions model or proxy port
+npx xc-copilot-api@latest config --agy --agy-model gpt-4.1 --port 4141
+```
+
+The command merges `~/.gemini/antigravity-cli/settings.json`, preserves unrelated settings and custom models, saves a `settings.json.bak`, and registers a custom model named **Copilot API** with native tool calling. Running `config` without target flags still configures only Claude Code and Codex CLI. Targets can be combined, for example `config --claude --codex --agy`.
+
+Run the environment commands printed by the config command before launching `agy`. On macOS/Linux:
+
+```sh
+export GEMINI_API_KEY="copilot-api"
+export GOOGLE_GEMINI_BASE_URL="http://localhost:4141"
+agy --model copilot-api
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:GEMINI_API_KEY = "copilot-api"
+$env:GOOGLE_GEMINI_BASE_URL = "http://localhost:4141"
+agy --model copilot-api
+```
+
+The placeholder key only enables agy's API-key mode; the proxy continues to authenticate upstream using your GitHub Copilot token. Use the proxy root URL, without `/v1beta`, because agy appends the API path. The CLI does not load these values from `.env` or its settings file. The config command does not edit shell profiles; persist the environment yourself if desired. Always pass `--model copilot-api`: agy 1.5.9 does not reliably restore saved custom-model selections, so the config command preserves your existing saved model instead of overwriting it.
+
+<details>
+<summary>Manual configuration</summary>
+
+Merge this into `~/.gemini/antigravity-cli/settings.json`, then set the environment shown above:
+
+```json
+{
+  "modelProvider": "gemini",
+  "customModelsConfig": {
+    "customModels": {
+      "copilot-api": {
+        "modelName": "gemini-api://gpt-4.1",
+        "label": "Copilot API",
+        "toolFormatterType": "TOOL_FORMATTER_TYPE_NONE",
+        "modelFeatures": {
+          "supportsImages": true,
+          "supportsToolCalls": true,
+          "supportsThinking": false,
+          "supportsVideo": false,
+          "supportsAudio": false,
+          "supportsPdf": false
+        }
+      }
+    }
+  }
+}
+```
+
+</details>
+
+**Compatibility:** Text, inline images, system prompts, conversation history, native tool calls/results, JSON-object output, and SSE streaming are translated to Copilot Chat Completions. Token counts are local estimates, not Google's tokenizer. Use a Copilot model that supports Chat Completions; models requiring only the Responses or Messages API are not supported by this adapter. Audio, video, PDF, Google-hosted file references, built-in Google tools, thinking output, and schema-constrained output (`responseSchema` / `responseJsonSchema`) are not supported. Unsupported response-schema constraints return an explicit error rather than being silently dropped. The configuration disables unsupported custom-model capabilities. Validated with agy 1.5.9.
+
+References: [API-key mode and custom endpoint](https://antigravity.google/docs/install/#using-a-gemini-api-key), [CLI settings](https://antigravity.google/docs/settings/), and [settings schema](https://antigravity.google/schemas/v1/settings.json).
+
 ## Command Reference
 
 ### Commands
@@ -122,7 +188,7 @@ wire_api = "responses"
 | ------------- | ------------------------------------------------------------------ |
 | `start`       | Start the API server (handles auth automatically)                  |
 | `auth`        | Run GitHub auth flow only (for generating tokens for CI/CD)        |
-| `config`      | Configure Claude Code or Codex CLI to use this proxy               |
+| `config`      | Configure Claude Code, Codex CLI, or Antigravity CLI               |
 | `check-usage` | Show Copilot usage and quota in the terminal                       |
 | `debug`       | Display version, runtime, file paths, and auth status              |
 
@@ -146,7 +212,10 @@ wire_api = "responses"
 | -------------- | ------------------------------------------------- | ------- | ----- |
 | --claude       | Configure Claude Code (`~/.claude/settings.json`) | false   | -c    |
 | --codex        | Configure Codex CLI (`~/.codex/config.toml`)      | false   | -x    |
+| --agy          | Configure Antigravity CLI (`~/.gemini/antigravity-cli/settings.json`) | false | -a |
+| --agy-model    | Copilot Chat Completions model for agy           | gpt-4.1 |       |
 | --claude-model | Claude Opus model version (4.7 or 4.6)            | 4.7     | -m    |
+| --port         | Proxy port used by all selected clients           | 4141    | -p    |
 
 ## API Endpoints
 
@@ -160,6 +229,13 @@ wire_api = "responses"
 | `POST /v1/embeddings`            | Create embedding vectors                       |
 | `GET  /usage`                    | Copilot usage statistics and quota             |
 | `GET  /token`                    | Current Copilot token                          |
+| `POST /v1beta/models/:model:generateContent` | Gemini-compatible generation            |
+| `POST /v1beta/models/:model:streamGenerateContent?alt=sse` | Gemini-compatible SSE streaming |
+| `POST /v1beta/models/:model:countTokens` | Approximate local Gemini token counting     |
+| `GET  /v1beta/models`             | Gemini-compatible model discovery              |
+| `GET  /v1beta/models/:model`      | Gemini-compatible model metadata               |
+
+Gemini generation, token counting, and individual model metadata also accept the `/v1` prefix. `GET /v1/models` remains the existing OpenAI-compatible endpoint; use `/v1beta/models` for Gemini discovery.
 
 ## Running as a Background Service
 

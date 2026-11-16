@@ -14,7 +14,7 @@ const main = defineCommand({
     name: "xc-copilot-api",
     version: packageJson.version,
     description:
-      "A wrapper around GitHub Copilot API to make it OpenAI compatible, making it usable for other tools.",
+      "Expose GitHub Copilot through OpenAI, Anthropic, and Gemini-compatible APIs for external tools.",
   },
   args: {
     version: {
